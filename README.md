@@ -340,4 +340,4 @@ Available [here](https://github.com/FNNDSC/ChRIS_ultron_backEnd/wiki).
 
 ### Learn More
 
-If you are interested in contributing or joining us, Check [here](http://chrisproject.org/join-us).
+If you are interested in contributing or joining us, Check [here](http://chrisproject.org/join-us)..
