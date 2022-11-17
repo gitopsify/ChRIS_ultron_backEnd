@@ -78,7 +78,8 @@ class PluginInstanceManager(object):
 
         self.l_plugin_inst_param_instances = self.c_plugin_inst.get_parameter_instances()
 
-        self.str_job_id = ChrisInstance.load().job_id_prefix + str(plugin_instance.id)
+        self.str_job_id_prefix = ChrisInstance.load().job_id_prefix
+        self.str_job_id = self.str_job_id_prefix + str(plugin_instance.id)
 
         cr = self.c_plugin_inst.compute_resource
         self.pfcon_client = pfcon.Client(cr.compute_url, cr.compute_auth_token)
@@ -142,10 +143,11 @@ class PluginInstanceManager(object):
             'memory_limit': self.c_plugin_inst.memory_limit,
             'gpu_limit': self.c_plugin_inst.gpu_limit,
             'image': plugin.dock_image,
-            'type': plugin_type
+            'type': plugin_type,
+            'env': self._compute_env_vars()
         }
-        pfcon_url = self.pfcon_client.url
         job_id = self.str_job_id
+        pfcon_url = self.pfcon_client.url
         logger.info(f'Submitting job {job_id} to pfcon url -->{pfcon_url}<--, '
                     f'description: {json.dumps(job_descriptors, indent=4)}')
         try:
@@ -178,6 +180,31 @@ class PluginInstanceManager(object):
         if not execshell:
             return [entrypoint_path]
         return [execshell, entrypoint_path]
+
+    def _compute_env_vars(self):
+        """
+        Helper method to compute a list of environment variables to be injected into
+        remote plugin's container.
+        """
+        job_id = self.str_job_id
+        plugin_inst = self.c_plugin_inst
+        plugin = plugin_inst.plugin
+        plugin_type = plugin.meta.type
+
+        env = [f'CHRIS_JID={job_id}', f'CHRIS_PLG_INST_ID={plugin_inst.id}']
+        if plugin_type != 'fs':
+            prev_id = plugin_inst.previous.id
+            env.append(f'CHRIS_PREV_PLG_INST_ID={prev_id}')
+            env.append(f'CHRIS_PREV_JID={self.str_job_id_prefix + str(prev_id)}')
+
+        if plugin_inst.workflow:
+            workflow_instances_info = ''
+            for inst in plugin_inst.workflow.plugin_instances.all():
+                workflow_instances_info += f'{inst.title}:{inst.id},'
+            env.append(f'CHRIS_WORKFLOW_ID={plugin_inst.workflow.id}')
+            env.append(f'CHRIS_PIPELINE_ID={plugin_inst.workflow.pipeline.id}')
+            env.append(f'CHRIS_WORKFLOW_PLG_INSTANCES={workflow_instances_info[:-1]}')
+        return env
 
     def _submit_job(self, job_id, job_descriptors, dfile, timeout=9000):
         """
@@ -220,15 +247,16 @@ class PluginInstanceManager(object):
         if self.c_plugin_inst.status == 'started':
             job_id = self.str_job_id
 
-            delta_exec_time = timezone.now() - self.c_plugin_inst.start_date
-            delta_seconds = delta_exec_time.total_seconds()
-            max_exec_seconds = self.c_plugin_inst.compute_resource.max_job_exec_seconds
-            if delta_seconds > max_exec_seconds:
-                logger.error(f'[CODE13,{job_id}]: Error, job exceeded maximum execution '
-                             f'time ({max_exec_seconds} seconds)')
-                self.c_plugin_inst.error_code = 'CODE13'
-                self.cancel_plugin_instance_app_exec()
-                return self.c_plugin_inst.status
+            max_job_exec_sec = self.c_plugin_inst.compute_resource.max_job_exec_seconds
+            if max_job_exec_sec >= 0:
+                delta_exec_time = timezone.now() - self.c_plugin_inst.start_date
+                delta_seconds = delta_exec_time.total_seconds()
+                if delta_seconds > max_job_exec_sec:
+                    logger.error(f'[CODE13,{job_id}]: Error, job exceeded maximum '
+                                 f'execution time ({max_job_exec_sec} seconds)')
+                    self.c_plugin_inst.error_code = 'CODE13'
+                    self.cancel_plugin_instance_app_exec()
+                    return self.c_plugin_inst.status
 
             pfcon_url = self.pfcon_client.url
             logger.info(f'Sending job status request to pfcon url -->{pfcon_url}<-- for '

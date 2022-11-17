@@ -107,6 +107,7 @@ class PipelineFilter(FilterSet):
 
 
 class PluginPiping(models.Model):
+    title = models.CharField(max_length=100)
     plugin = models.ForeignKey(Plugin, on_delete=models.CASCADE)
     pipeline = models.ForeignKey(Pipeline, on_delete=models.CASCADE,
                                  related_name='plugin_pipings')
@@ -115,9 +116,10 @@ class PluginPiping(models.Model):
 
     class Meta:
         ordering = ('pipeline',)
+        unique_together = ('title', 'pipeline',)
 
     def __str__(self):
-        return str(self.id)
+        return str(self.title)
 
     def save(self, *args, **kwargs):
         """

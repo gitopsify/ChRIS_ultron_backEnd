@@ -8,6 +8,8 @@ Local settings
 - Add django-extensions as app
 """
 
+import ldap
+from django_auth_ldap.config import LDAPSearch
 from .common import *  # noqa
 from core.swiftmanager import SwiftManager
 
@@ -16,20 +18,20 @@ from core.swiftmanager import SwiftManager
 from django.core.exceptions import ImproperlyConfigured
 
 # Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
+# See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'w1kxu^l=@pnsf!5piqz6!!5kdcdpo79y6jebbp+2244yjm*#+k'
 
 # Hosts/domain names that are valid for this site
-# See https://docs.djangoproject.com/en/2.2/ref/settings/#allowed-hosts
+# See https://docs.djangoproject.com/en/4.0/ref/settings/#allowed-hosts
 ALLOWED_HOSTS = ['*']
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 # LOGGING CONFIGURATION
-# See http://docs.djangoproject.com/en/2.2/topics/logging for
+# See https://docs.djangoproject.com/en/4.0/topics/logging/ for
 # more details on how to customize your logging configuration.
 LOGGING = {
     'version': 1,
@@ -97,7 +99,7 @@ except Exception as e:
 CHRIS_STORE_URL = 'http://chris-store.local:8010/api/v1/'
 
 # Database
-# https://docs.djangoproject.com/en/2.2/ref/settings/#databases
+# https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 DATABASES['default']['NAME'] = 'chris_dev'
 DATABASES['default']['USER'] = 'chris'
 DATABASES['default']['PASSWORD'] = 'Chris1234'
@@ -137,7 +139,7 @@ COMPUTE_RESOURCE_URL = 'http://pfcon.remote:30005/api/v1/'
 
 # corsheaders
 # ------------------------------------------------------------------------------
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_EXPOSE_HEADERS = ['Allow', 'Content-Type', 'Content-Length']
 
 
@@ -155,3 +157,24 @@ CELERY_TASK_SERIALIZER = 'json'
 # messages to prefetch at a time multiplied by the number of concurrent processes
 # default is 4 (four messages for each process)
 CELERYD_PREFETCH_MULTIPLIER = 2
+
+
+# LDAP auth configuration
+AUTH_LDAP = False
+if AUTH_LDAP:
+    AUTH_LDAP_SERVER_URI = 'ldap://192.168.0.29:389'
+    AUTH_LDAP_BIND_DN = 'cn=admin,dc=fnndsc,dc=org'
+    AUTH_LDAP_BIND_PASSWORD = 'admin1234'
+    AUTH_LDAP_USER_SEARCH_ROOT = 'dc=fnndsc,dc=org'
+
+    AUTH_LDAP_USER_SEARCH = LDAPSearch(AUTH_LDAP_USER_SEARCH_ROOT, ldap.SCOPE_SUBTREE,
+                                       '(uid=%(user)s)')
+    AUTH_LDAP_USER_ATTR_MAP = {
+        'first_name': 'givenName',
+        'last_name': 'sn',
+        'email': 'mail'
+    }
+    AUTHENTICATION_BACKENDS = (
+        'django_auth_ldap.backend.LDAPBackend',
+        'django.contrib.auth.backends.ModelBackend',
+    )

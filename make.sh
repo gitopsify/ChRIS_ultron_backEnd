@@ -245,7 +245,9 @@ shift $(($OPTIND - 1))
 if [[ $ORCHESTRATOR == kubernetes ]]; then
     if [ -z ${HOSTIP+x} ]; then
         echo "-P <hostIp> (this machine's ip address) must be specified or the shell
-             environment variable HOSTIP must be set when using kubernetes orchestrator"
+             environment variable HOSTIP must be set when using kubernetes orchestrator
+             If you are using minikube to run the development environment, HOSTIP can be gotten by running
+             'minikube ip' on the terminal"
         print_usage
     fi
 fi
@@ -275,6 +277,8 @@ rm -f dc.out ; title -d 1 "Setting global exports"
         echo -e "HOSTIP=$HOSTIP"                   | ./boxes.sh
         echo -e "exporting REMOTENETWORK=false "   | ./boxes.sh
         export REMOTENETWORK=false
+        echo -e "exporting MINIKUBENETWORK=true"
+        export MINIKUBENETWORK=true
         echo -e "exporting PFCONDNS=pfcon.remote " | ./boxes.sh
         export PFCONDNS=pfcon.remote
         boxcenter "exporting PFCONIP=$HOSTIP "
@@ -321,7 +325,7 @@ rm -f dc.out ; title -d 1 "Pulling non-'local/' core containers where needed"   
         for CORE in ${A_CONTAINER[@]} ; do
             cparse $CORE "REPO" "CONTAINER" "MMN" "ENV"
             echo "${ENV}=${REPO}"                                       >>.env
-            if [[ $REPO != "local" ]] ; then
+            if [[ $REPO != "local" && $CONTAINER != "chris:dev" ]] ; then
                 echo ""                                             | ./boxes.sh
                 CMD="docker pull ${REPO}/$CONTAINER"
                 printf "${LightCyan}%13s${Green}%-67s${Yellow}\n"   \
@@ -431,8 +435,8 @@ rm -f dc.out ; title -d 1 "Waiting for remote pfcon containers to start running 
             pfcon=$(docker ps -f name=pfcon_stack_pfcon.1 -q)
         elif [[ $ORCHESTRATOR == kubernetes ]]; then
             pfcon=$(kubectl get pods --selector="app=pfcon,env=production"     \
-                        --field-selector=status.phase=Running --               \
-                        output=jsonpath='{.items[*].metadata.name}')
+                        --field-selector=status.phase=Running                  \
+                        --output=jsonpath='{.items[*].metadata.name}')
         fi
         if [ -n "$pfcon" ]; then
           echo -en "\033[3A\033[2K"
@@ -456,9 +460,9 @@ windowBottom
 rm -f dc.out ; title -d 1  "Starting CUBE containerized development environment using "            \
                         "./docker-compose_dev.yml"
     echo "This might take a few minutes... please be patient."      | ./boxes.sh Yellow
-    echo "$ docker-compose -f docker-compose_dev.yml up -d"         | ./boxes.sh LightCyan
+    echo "$ docker-compose -f docker-compose_dev.yml up -d --build" | ./boxes.sh LightCyan
     windowBottom
-    docker-compose -f docker-compose_dev.yml up -d        >& dc.out
+    docker-compose -f docker-compose_dev.yml up -d --build  >& dc.out
     dc_check $? "PRINT"
 windowBottom
 
@@ -553,9 +557,11 @@ rm -f dc.out ; title -d 1 "Automatically creating two unlocked pipelines in the 
     PIPELINE_NAME="s3retrieve_v${S3_PLUGIN_VER}-simpledsapp_v${SIMPLEDS_PLUGIN_VER}"
     printf "%20s${LightBlue}%60s${NC}\n"                            \
                 "Creating pipeline..." "[ $PIPELINE_NAME ]"         | ./boxes.sh
-    STR1='[{"plugin_name": "pl-s3retrieve", "plugin_version": "'
-    STR2='", "plugin_parameter_defaults": [{"name": "bucket", "default": "somebucket"}, {"name": "awssecretkey", "default": "somekey"},
-    {"name": "awskeyid", "default": "somekeyid"}], "previous_index": null}, {"plugin_name": "pl-simpledsapp", "plugin_version": "'
+    STR1='[{"title": "pl-s3retrieve", "plugin_name": "pl-s3retrieve", "plugin_version": "'
+    STR2='", "plugin_parameter_defaults": [{"name": "bucket", "default": "somebucket"},
+      {"name": "awssecretkey", "default": "somekey"},
+    {"name": "awskeyid", "default": "somekeyid"}], "previous_index": null},  {"title":
+    "pl-simpledsapp", "plugin_name": "pl-simpledsapp", "plugin_version": "'
     STR3='", "previous_index": 0}]'
     PLUGIN_TREE=${STR1}${S3_PLUGIN_VER}${STR2}${SIMPLEDS_PLUGIN_VER}${STR3}
     windowBottom
@@ -567,9 +573,11 @@ rm -f dc.out ; title -d 1 "Automatically creating two unlocked pipelines in the 
     PIPELINE_NAME="simpledsapp_v${SIMPLEDS_PLUGIN_VER}-simpledsapp_v${SIMPLEDS_PLUGIN_VER}-simpledsapp_v${SIMPLEDS_PLUGIN_VER}"
     printf "%20s${LightBlue}%60s${NC}\n"                            \
                 "Creating pipeline..." "[ $PIPELINE_NAME ]"         | ./boxes.sh
-    STR4='[{"plugin_name": "pl-simpledsapp", "plugin_version": "'
-    STR5='", "previous_index": null},{"plugin_name": "pl-simpledsapp", "plugin_version": "'
-    STR6='", "previous_index": 0},{"plugin_name": "pl-simpledsapp", "plugin_version": "'
+    STR4='[{"title": "pl-simpledsapp1", "plugin_name": "pl-simpledsapp", "plugin_version": "'
+    STR5='", "previous_index": null},{"title": "pl-simpledsapp2", "plugin_name":
+    "pl-simpledsapp", "plugin_version": "'
+    STR6='", "previous_index": 0},{"title": "pl-simpledsapp3", "plugin_name":
+    "pl-simpledsapp", "plugin_version": "'
     STR7='", "previous_index": 0}]'
     PLUGIN_TREE=${STR4}${SIMPLEDS_PLUGIN_VER}${STR5}${SIMPLEDS_PLUGIN_VER}${STR6}${SIMPLEDS_PLUGIN_VER}${STR7}
     windowBottom

@@ -13,20 +13,22 @@ from .models import Workflow
 
 
 class WorkflowSerializer(serializers.HyperlinkedModelSerializer):
-    created_plugin_inst_ids = serializers.ReadOnlyField()
     pipeline_id = serializers.ReadOnlyField(source='pipeline.id')
     pipeline_name = serializers.ReadOnlyField(source='pipeline.name')
-    previous_plugin_inst_id = serializers.IntegerField(min_value=1, write_only=True)
+    previous_plugin_inst_id = serializers.IntegerField(min_value=1, write_only=True,
+                                                       required=False)
     nodes_info = serializers.JSONField(write_only=True, default='[]')
     owner_username = serializers.ReadOnlyField(source='owner.username')
     pipeline = serializers.HyperlinkedRelatedField(view_name='pipeline-detail',
                                                    read_only=True)
+    plugin_instances = serializers.HyperlinkedIdentityField(
+        view_name='workflow-plugininstance-list')
 
     class Meta:
         model = Workflow
-        fields = ('url', 'id', 'creation_date', 'created_plugin_inst_ids', 'pipeline_id',
+        fields = ('url', 'id', 'creation_date', 'title', 'pipeline_id',
                   'pipeline_name', 'owner_username', 'previous_plugin_inst_id',
-                  'nodes_info', 'pipeline')
+                  'nodes_info', 'pipeline', 'plugin_instances')
 
     def create(self, validated_data):
         """
@@ -39,12 +41,9 @@ class WorkflowSerializer(serializers.HyperlinkedModelSerializer):
 
     def validate_previous_plugin_inst_id(self, previous_plugin_inst_id) -> PluginInstance:
         """
-        Overriden to check that an integer id is provided for previous plugin instance.
-        Then check that the id exists in the DB and that the user can run plugins
-        within the corresponding feed.
+        Overriden to check that the provided previous plugin instance id exists in the
+        DB and that the user can run plugins within the corresponding feed.
         """
-        if not previous_plugin_inst_id:
-            raise serializers.ValidationError(['This field is required.'])
         try:
             pk = int(previous_plugin_inst_id)
             previous_plugin_inst = PluginInstance.objects.get(pk=pk)
@@ -69,9 +68,11 @@ class WorkflowSerializer(serializers.HyperlinkedModelSerializer):
         Returned data is made canonical: dictionaries are created for unmentioned pipings,
         and undefined keys are initialized with ``None``.
         """
+        if self.instance:  # this validation only happens on create and not on update
+            return []
+
         if nodes_info is None:
             nodes_info = '[]'
-
         try:
             node_list: List[GivenNodeInfo] = json.loads(nodes_info)
         except json.decoder.JSONDecodeError:
@@ -81,20 +82,51 @@ class WorkflowSerializer(serializers.HyperlinkedModelSerializer):
             raise serializers.ValidationError([f'Invalid list in {nodes_info}'])
 
         for d in node_list:
-            self._repair_undefined(d)
+            if 'piping_id' not in d:
+                raise serializers.ValidationError(
+                    f'Element does not specify "piping_id": {d}')
 
         pipeline = self.context['view'].get_object()
         pipings = list(pipeline.plugin_pipings.all())
 
+        titles = []
         for piping in pipings:
             d_l = [d for d in node_list if d.get('piping_id') == piping.id]
-            try:
+            if d_l:
                 d = d_l[0]
-            except IndexError:
+                if 'title' in d:
+                    title = d['title']
+                    if title in titles:
+                        raise serializers.ValidationError(
+                            [f"Workflow tree can not contain duplicated title: {title}"])
+                    titles.append(title)
+                    plg_inst_serializer = PluginInstanceSerializer(data={'title': title})
+                    try:
+                        plg_inst_serializer.is_valid(raise_exception=True)
+                    except Exception:
+                        msg = [f'Invalid title {title} for pipping with id {piping.id}']
+                        raise serializers.ValidationError(msg)
+                else:
+                    title = piping.title
+                    if title in titles:
+                        raise serializers.ValidationError(
+                            [f"Workflow tree can not contain duplicated title: {title}"])
+                    titles.append(title)
+                    d['title'] = title
+                if 'compute_resource_name' not in d:
+                    d['compute_resource_name'] = None
+                if 'plugin_parameter_defaults' not in d:
+                    d['plugin_parameter_defaults'] = []
+            else:
+                title = piping.title
+                if title in titles:
+                    raise serializers.ValidationError(
+                        [f"Workflow tree can not contain duplicated title: {title}"])
+                titles.append(title)
                 d = GivenNodeInfo(
                     piping_id=piping.id,
                     compute_resource_name=None,
-                    title='',
+                    title=title,
                     plugin_parameter_defaults=[]
                 )
                 node_list.append(d)
@@ -105,32 +137,12 @@ class WorkflowSerializer(serializers.HyperlinkedModelSerializer):
                        f'with a compute resource named {cr_name}']
                 raise serializers.ValidationError(msg)
 
-            title = d.get('title')
-            plg_inst_serializer = PluginInstanceSerializer(data={'title': title})
-            try:
-                plg_inst_serializer.is_valid(raise_exception=True)
-            except Exception:
-                msg = [f'Invalid title {title} for pipping with id {piping.id}']
-                raise serializers.ValidationError(msg)
-
             piping_param_defaults = d.get('plugin_parameter_defaults')
             param_sets = (piping.string_param, piping.integer_param, piping.float_param, piping.boolean_param)
             for param_set in param_sets:
                 for default_param in param_set.all():
                     self.validate_piping_params(piping.id, default_param, piping_param_defaults)
-
         return node_list
-
-    @classmethod
-    def _repair_undefined(cls, d: GivenNodeInfo):
-        if 'piping_id' not in d:
-            raise serializers.ValidationError(f'Element does not specify "piping_id": {d}')
-        if 'compute_resource_name' not in d:
-            d['compute_resource_name'] = None
-        if 'title' not in d:
-            d['title'] = ''
-        if 'plugin_parameter_defaults' not in d:
-            d['plugin_parameter_defaults'] = []
 
     @staticmethod
     def validate_piping_params(piping_id: PipingId, default_param, piping_param_defaults: List[GivenWorkflowPluginParameterDefault]):
@@ -163,3 +175,14 @@ class WorkflowSerializer(serializers.HyperlinkedModelSerializer):
                        f"parameter '{default_param.plugin_param.name}' and pipping "
                        f'with id {piping_id}']
                 raise serializers.ValidationError(msg)
+
+    def validate(self, data):
+        """
+        Overriden to validate that a previous plugin instance id was passsed in the
+        create request.
+        """
+        if not self.instance:  # this validation only happens on create and not on update
+            if 'previous_plugin_inst_id' not in data:
+                raise serializers.ValidationError(
+                    {'previous_plugin_inst_id': ["This field is required."]})
+        return data

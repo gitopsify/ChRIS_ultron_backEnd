@@ -47,6 +47,10 @@ spec:
           ports:
             - containerPort: 30005
           env:
+            - name: PFCON_USER
+              value: "pfcon"
+            - name: PFCON_PASSWORD
+              value: "pfcon1234"  
             - name: SECRET_KEY
               value: "w1kxu^l=@pnsf!5piqz6!!5kdcdpo79y6jebbp+2244yjm*#+k"
             - name: COMPUTE_SERVICE_URL
@@ -117,3 +121,38 @@ spec:
               value: ${STOREBASE}
             - name: CONTAINER_ENV
               value: kubernetes
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: job-creator
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: default
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: default
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: default
+  namespace: default
+rules:
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
