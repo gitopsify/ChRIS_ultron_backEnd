@@ -82,18 +82,45 @@ for app in ['collectionjson', 'core', 'feeds', 'plugins', 'plugininstances', 'pi
         }
 
 # Swift service settings
-DEFAULT_FILE_STORAGE = 'swift.storage.SwiftStorage'
-SWIFT_AUTH_URL = 'http://swift_service:8080/auth/v1.0'
-SWIFT_USERNAME = 'chris:chris1234'
-SWIFT_KEY = 'testing'
-SWIFT_CONTAINER_NAME = 'users'
-SWIFT_CONNECTION_PARAMS = {'user': SWIFT_USERNAME,
-                           'key': SWIFT_KEY,
-                           'authurl': SWIFT_AUTH_URL}
-try:
-    SwiftManager(SWIFT_CONTAINER_NAME, SWIFT_CONNECTION_PARAMS).create_container()
-except Exception as e:
-    raise ImproperlyConfigured(str(e))
+# DEFAULT_FILE_STORAGE = 'swift.storage.SwiftStorage'
+# SWIFT_AUTH_URL = 'http://swift_service:8080/auth/v1.0'
+AWS_S3_HOST = "127.0.0.1"
+AWS_S3_ENDPOINT_URL = "http://127.0.0.1:4566"
+
+AWS_ACCESS_KEY_ID = 'foobar'
+AWS_SECRET_ACCESS_KEY = 'foobar'
+AWS_STORAGE_BUCKET_NAME = 'users'
+
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+AWS_S3_REGION_NAME = 'us-east-1'
+AWS_S3_VERIFY = False
+AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
+
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',
+    'ACL': 'public-read-write',
+}
+AWS_QUERYSTRING_AUTH = False
+
+AWS_STATIC_LOCATION = 'static'
+STATICFILES_STORAGE = 'uploadedfiles.s3_storage.StaticStorage'
+STATIC_URL = "http://%s/%s/" % (AWS_S3_CUSTOM_DOMAIN, AWS_STATIC_LOCATION)
+
+AWS_PUBLIC_MEDIA_LOCATION = ''
+MEDIA_URL = "http://%s/%s/" % (AWS_S3_CUSTOM_DOMAIN, AWS_PUBLIC_MEDIA_LOCATION)
+DEFAULT_FILE_STORAGE = 'uploadedfiles.s3_storage.PublicMediaStorage'
+
+# SWIFT_USERNAME = 'chris:chris1234'
+# SWIFT_KEY = 'testing'
+# SWIFT_CONTAINER_NAME = 'users'
+# SWIFT_CONNECTION_PARAMS = {'user': SWIFT_USERNAME,
+#                            'key': SWIFT_KEY,
+#                            'authurl': SWIFT_AUTH_URL}
+# try:
+#     SwiftManager(SWIFT_CONTAINER_NAME, SWIFT_CONNECTION_PARAMS).create_container()
+# except Exception as e:
+#     raise ImproperlyConfigured(str(e))
 
 # ChRIS store settings
 CHRIS_STORE_URL = 'http://chris-store.local:8010/api/v1/'

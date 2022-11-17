@@ -6,8 +6,14 @@ import logging
 import os
 import time
 
-from swiftclient import Connection
-from swiftclient.exceptions import ClientException
+import boto3
+import botocore
+from botocore.client import BaseClient
+from storages.backends.s3boto3 import S3Boto3Storage
+from django.conf import settings
+
+# from swiftclient import Connection
+# from swiftclient.exceptions import ClientException
 
 
 logger = logging.getLogger(__name__)
@@ -15,29 +21,49 @@ logger = logging.getLogger(__name__)
 
 class SwiftManager(object):
 
-    def __init__(self, container_name, conn_params):
-        self.container_name = container_name
-        # swift storage connection parameters dictionary
-        self.conn_params = conn_params
+    location = settings.AWS_PUBLIC_MEDIA_LOCATION
+    file_overwrite = False
+    default_acl = 'public-read-write'
+    container_name = None
+    conn_params = None
+    _boto_session = None
+    _boto_client = None
+
+    def initialize(self):
+        if self.container_name is not None:
+            return
+        self.container_name = settings.AWS_STORAGE_BUCKET_NAME
+        self.conn_params = settings.AWS_S3_OBJECT_PARAMETERS
         # swift storage connection object
-        self._conn = None
+        self.create_container()
 
     def get_connection(self):
         """
-        Connect to swift storage and return the connection object.
+        Connect to s3 storage and return the connection object.
         """
-        if self._conn is not None:
-            return self._conn
+        self.initialize();
+        if self._boto_client is not None:
+            return self._boto_client
+        self._boto_session = boto3.session.Session()
         for i in range(5):  # 5 retries at most
             try:
-                self._conn = Connection(**self.conn_params)
+
+                self._boto_client = self._boto_session.client(
+                    service_name='s3',
+                    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                    endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+                    # The next option is only required because my provider only offers "version 2"
+                    # authentication protocol. Otherwise this would be 's3v4' (the default, version 4).
+                    config=botocore.client.Config(signature_version='s3'),
+                )
             except ClientException as e:
                 logger.error(str(e))
                 if i == 4:
                     raise  # give up
                 time.sleep(0.4)
             else:
-                return self._conn
+                return self._boto_client
 
     def create_container(self):
         """
@@ -45,60 +71,64 @@ class SwiftManager(object):
         """
         conn = self.get_connection()
         try:
-            conn.put_container(self.container_name)
+            conn.create_bucket(Bucket=self.container_name)
         except ClientException as e:
             logger.error(str(e))
             raise
 
     def ls(self, path, **kwargs):
         """
-        Return a list of objects in the swift storage with the provided path
+        Return a list of objects in the s3 storage with the provided path
         as a prefix.
         """
         b_full_listing = kwargs.get('full_listing', True)
+        #if not path.endswith('/'):
+         #   path = path + '/'
         l_ls = []  # listing of names to return
+        has_run = False
         if path:
             conn = self.get_connection()
             for i in range(5):
+                if has_run:
+                    continue
                 try:
-                    # get the full list of objects in Swift storage with given prefix
-                    ld_obj = conn.get_container(self.container_name,
-                                                prefix=path,
-                                                full_listing=b_full_listing)[1]
+                    paginator = conn.get_paginator('list_objects_v2')
+                    page_iterator = paginator.paginate(Bucket=self.container_name, Prefix=path)
+
+                    for page in page_iterator:
+                        print('Get s3 bucket page: ')
+                        if page['KeyCount'] == 0:
+                            continue
+                        files = page["Contents"]
+                        if files is None:
+                            print('No file contents.')
+                            continue
+                        for file in files:  # This also contains the file size....
+                            l_ls.append(file['Key'])
+                    has_run = True
                 except ClientException as e:
                     logger.error(str(e))
                     if i == 4:
                         raise
                     time.sleep(0.4)
-                else:
-                    l_ls = [d_obj['name'] for d_obj in ld_obj]
-                    break
         return l_ls
 
     def path_exists(self, path):
         """
         Return True/False if passed path exists in swift storage.
         """
-        return len(self.ls(path, full_listing=False)) > 0
+        conn = self.get_connection()
+        result = conn.list_objects(Bucket=self.container_name, Prefix=path)
+        exists = False
+        if 'Contents' in result:
+            exists = True
+        return exists
 
     def obj_exists(self, obj_path):
         """
         Return True/False if passed object exists in swift storage.
         """
-        conn = self.get_connection()
-        for i in range(5):
-            try:
-                conn.head_object(self.container_name, obj_path)
-            except ClientException as e:
-                if e.http_status == 404:
-                    return False
-                else:
-                    logger.error(str(e))
-                    if i == 4:
-                        raise
-                    time.sleep(0.4)
-            else:
-                return True
+        return self.path_exists(obj_path)
 
     def upload_obj(self, swift_path, contents, **kwargs):
         """
@@ -107,10 +137,9 @@ class SwiftManager(object):
         conn = self.get_connection()
         for i in range(5):
             try:
-                conn.put_object(self.container_name,
-                                swift_path,
-                                contents=contents,
-                                **kwargs)
+                conn.put_object(Bucket=self.container_name,
+                                Key=swift_path,
+                                Body=contents)
             except ClientException as e:
                 logger.error(str(e))
                 if i == 4:
@@ -126,8 +155,8 @@ class SwiftManager(object):
         conn = self.get_connection()
         for i in range(5):
             try:
-                resp_headers, obj_contents = conn.get_object(self.container_name,
-                                                             obj_path, **kwargs)
+                response_object = conn.get_object(Bucket=self.container_name, Key=obj_path)
+                obj_contents = response_object['Body'].read()
             except ClientException as e:
                 logger.error(str(e))
                 if i == 4:
@@ -141,10 +170,13 @@ class SwiftManager(object):
         Copy an object to a new destination in swift storage.
         """
         conn = self.get_connection()
-        dest = os.path.join('/' + self.container_name, dest_path.lstrip('/'))
+        #dest = os.path.join('/' + self.container_name, dest_path.lstrip('/'))
+        bucket = self.container_name
         for i in range(5):
             try:
-                conn.copy_object(self.container_name, obj_path, dest, **kwargs)
+                #conn.copy_object(self.container_name, obj_path, dest, **kwargs)
+                conn.copy_object(Bucket=bucket, CopySource=f'{bucket}/{obj_path}', Key=dest_path, **kwargs)
+
             except ClientException as e:
                 logger.error(str(e))
                 if i == 4:
@@ -160,7 +192,7 @@ class SwiftManager(object):
         conn = self.get_connection()
         for i in range(5):
             try:
-                conn.delete_object(self.container_name, obj_path)
+                conn.delete_object(Bucket=self.container_name, Key=obj_path)
             except ClientException as e:
                 logger.error(str(e))
                 if i == 4:
@@ -190,11 +222,20 @@ class SwiftManager(object):
             '/storage/dir2/file_d2'
         """
         # upload all files down the <local_dir>
+        #conn = self.get_connection()
+        #s3 = conn.resource('s3')
+        s3 = self.get_connection()
+
         for root, dirs, files in os.walk(local_dir):
             swift_base = root.replace(local_dir, swift_prefix, 1) if swift_prefix else root
             for filename in files:
                 swift_path = os.path.join(swift_base, filename)
                 if not self.obj_exists(swift_path):
                     local_file_path = os.path.join(root, filename)
-                    with open(local_file_path, 'rb') as f:
-                        self.upload_obj(swift_path, f.read(), **kwargs)
+                    #s3.meta.client.upload_file(Filename=swift_path, Bucket=self.container_name)
+                    s3.upload_file(Filename=local_file_path, Key=swift_path, Bucket=self.container_name)
+
+
+class StaticStorage(S3Boto3Storage):
+    location = settings.AWS_STATIC_LOCATION
+    default_acl = 'public-read-write'

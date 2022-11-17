@@ -9,7 +9,10 @@ from core.utils import filter_files_by_n_slashes
 def uploaded_file_path(instance, filename):
     # file will be stored to Swift at:
     # SWIFT_CONTAINER_NAME/<username>/uploads/<upload_path>
-    return instance.owner.upload_path
+    result = settings.AWS_STORAGE_BUCKET_NAME + "/"
+    if instance.owner.upload_path != '':
+        result = instance.owner.upload_path
+    return result
 
 
 class UploadedFile(models.Model):
