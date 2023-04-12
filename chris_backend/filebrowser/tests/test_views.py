@@ -158,8 +158,9 @@ class FileBrowserPathFileListViewTests(FileBrowserViewTests):
         super(FileBrowserPathFileListViewTests, self).setUp()
 
         # create a file in the DB "already uploaded" to the server)
-        self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                          settings.SWIFT_CONNECTION_PARAMS)
+        #self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
+        #                                  settings.SWIFT_CONNECTION_PARAMS)
+        self.swift_manager = SwiftManager()
 
         # upload file to Swift storage
         self.upload_path = f'{self.username}/uploads/file2.txt'

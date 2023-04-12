@@ -13,13 +13,13 @@ from storages.backends.s3boto3 import S3Boto3Storage
 from django.conf import settings
 
 # from swiftclient import Connection
-# from swiftclient.exceptions import ClientException
+from swiftclient.exceptions import ClientException
 
 
 logger = logging.getLogger(__name__)
 
 
-class SwiftManager(object):
+class SwiftManager(S3Boto3Storage):
 
     location = settings.AWS_PUBLIC_MEDIA_LOCATION
     file_overwrite = False
@@ -47,7 +47,6 @@ class SwiftManager(object):
         self._boto_session = boto3.session.Session()
         for i in range(5):  # 5 retries at most
             try:
-
                 self._boto_client = self._boto_session.client(
                     service_name='s3',
                     aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
@@ -96,12 +95,12 @@ class SwiftManager(object):
                     page_iterator = paginator.paginate(Bucket=self.container_name, Prefix=path)
 
                     for page in page_iterator:
-                        print('Get s3 bucket page: ')
+                        #print('Get s3 bucket page: ')
                         if page['KeyCount'] == 0:
                             continue
                         files = page["Contents"]
                         if files is None:
-                            print('No file contents.')
+                            #print('No file contents.')
                             continue
                         for file in files:  # This also contains the file size....
                             l_ls.append(file['Key'])
@@ -137,7 +136,7 @@ class SwiftManager(object):
         conn = self.get_connection()
         for i in range(5):
             try:
-                conn.put_object(Bucket=self.container_name,
+                result = conn.put_object(Bucket=self.container_name,
                                 Key=swift_path,
                                 Body=contents)
             except ClientException as e:
@@ -147,6 +146,7 @@ class SwiftManager(object):
                 time.sleep(0.4)
             else:
                 break
+        return result
 
     def download_obj(self, obj_path, **kwargs):
         """

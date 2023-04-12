@@ -76,8 +76,7 @@ class PACSFileSerializer(serializers.HyperlinkedModelSerializer):
             raise serializers.ValidationError(
                 ["File path must start with 'SERVICES/PACS/'."])
         # verify that the file is indeed already in Swift
-        swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                     settings.SWIFT_CONNECTION_PARAMS)
+        swift_manager = SwiftManager()
         try:
             swift_path_exists = swift_manager.obj_exists(path)
         except Exception as e:

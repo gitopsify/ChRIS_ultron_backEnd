@@ -106,8 +106,9 @@ class ServiceFileSerializerTests(TestCase):
         data = {'service_name': 'MyService', 'path': path}
         servicefiles_serializer = ServiceFileSerializer()
 
-        swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                     settings.SWIFT_CONNECTION_PARAMS)
+        #swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
+        #                             settings.SWIFT_CONNECTION_PARAMS)
+        swift_manager = SwiftManager()
         # upload file to Swift storage
         with io.StringIO("test file") as file1:
             swift_manager.upload_obj(path, file1.read(), content_type='text/plain')

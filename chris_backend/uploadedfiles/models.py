@@ -2,6 +2,7 @@
 from django.db import models
 import django_filters
 from django_filters.rest_framework import FilterSet
+from django.conf import settings
 
 from core.utils import filter_files_by_n_slashes
 

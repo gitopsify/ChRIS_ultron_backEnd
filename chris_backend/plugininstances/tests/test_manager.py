@@ -25,8 +25,9 @@ class PluginInstanceManagerTests(TestCase):
         # avoid cluttered console output (for instance logging all the http requests)
         logging.disable(logging.WARNING)
 
-        self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                          settings.SWIFT_CONNECTION_PARAMS)
+        #self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
+        #                                  settings.SWIFT_CONNECTION_PARAMS)
+        self.swift_manager = SwiftManager()
 
         self.plugin_fs_name = "simplefsapp"
         self.username = 'foo'

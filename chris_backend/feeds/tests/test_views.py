@@ -836,8 +836,9 @@ class FeedFileListViewTests(ViewTests):
 
         # create two files in the DB "already uploaded" to the server from two different
         # plugin instances that write to the same feed
-        self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                     settings.SWIFT_CONNECTION_PARAMS)
+        #self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
+        #                             settings.SWIFT_CONNECTION_PARAMS)
+        self.swift_manager = SwiftManager()
         plg_inst = PluginInstance.objects.all()[0]
         self.path1 = 'tests/file1.txt'
         with io.StringIO("test file1") as file1:

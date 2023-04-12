@@ -42,8 +42,9 @@ class UploadedFileViewTests(TestCase):
                                  password=self.password)
 
         # create a file in the DB "already uploaded" to the server)
-        self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                     settings.SWIFT_CONNECTION_PARAMS)
+        #self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
+        #                             settings.SWIFT_CONNECTION_PARAMS)
+        self.swift_manager = SwiftManager()
         # upload file to Swift storage
         self.upload_path = f'{self.username}/uploads/file1.txt'
         with io.StringIO("test file") as file1:

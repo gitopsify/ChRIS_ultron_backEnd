@@ -96,8 +96,9 @@ class TasksViewTests(TransactionTestCase):
 
     def setUp(self):
 
-        self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                          settings.SWIFT_CONNECTION_PARAMS)
+        #self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
+        #                                  settings.SWIFT_CONNECTION_PARAMS)
+        self.swift_manager = SwiftManager()
         self.chris_username = 'chris'
         self.chris_password = 'chris12'
         self.username = 'foo'
@@ -858,8 +859,9 @@ class PluginInstanceFileViewTests(ViewTests):
             plugin=plugin, owner=user, compute_resource=plugin.compute_resources.all()[0])
 
         # create a plugin instance file associated to the plugin instance
-        self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                     settings.SWIFT_CONNECTION_PARAMS)
+        #self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
+        #                             settings.SWIFT_CONNECTION_PARAMS)
+        self.swift_manager = SwiftManager()
         # upload file to Swift storage
         self.path = 'tests/file1.txt'
         with io.StringIO("test file") as file1:

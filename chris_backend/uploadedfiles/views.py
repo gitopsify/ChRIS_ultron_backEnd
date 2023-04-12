@@ -95,8 +95,9 @@ class UploadedFileDetail(generics.RetrieveUpdateDestroyAPIView):
         user_file = self.get_object()
         old_swift_path = user_file.fname.name
         serializer.save()
-        swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                     settings.SWIFT_CONNECTION_PARAMS)
+        #swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
+        #                             settings.SWIFT_CONNECTION_PARAMS)
+        swift_manager = SwiftManager()
         try:
             swift_manager.delete_obj(old_swift_path)
         except Exception as e:
@@ -108,8 +109,9 @@ class UploadedFileDetail(generics.RetrieveUpdateDestroyAPIView):
         """
         swift_path = instance.fname.name
         instance.delete()
-        swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                     settings.SWIFT_CONNECTION_PARAMS)
+        #swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
+        #                             settings.SWIFT_CONNECTION_PARAMS)
+        swift_manager = SwiftManager()
         try:
             swift_manager.delete_obj(swift_path)
         except Exception as e:

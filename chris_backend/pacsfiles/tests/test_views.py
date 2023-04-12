@@ -32,8 +32,9 @@ class PACSFileViewTests(TestCase):
         User.objects.create_user(username=self.username, password=self.password)
 
         # create a PACS file in the DB "already registered" to the server)
-        self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                     settings.SWIFT_CONNECTION_PARAMS)
+        #self.swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
+        #                             settings.SWIFT_CONNECTION_PARAMS)
+        self.swift_manager = SwiftManager()
         # upload file to Swift storage
         self.path = 'SERVICES/PACS/MyPACS/123456-crazy/brain_crazy_study/SAG_T1_MPRAGE/file1.dcm'
         with io.StringIO("test file") as file1:

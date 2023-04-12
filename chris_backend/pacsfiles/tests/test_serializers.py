@@ -68,8 +68,9 @@ class PACSFileSerializerTests(TestCase):
         """
         pacsfiles_serializer = PACSFileSerializer()
         path = 'SERVICES/PACS/MyPACS/123456-crazy/brain_crazy_study/SAG_T1_MPRAGE/file1.dcm'
-        swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
-                                     settings.SWIFT_CONNECTION_PARAMS)
+        #swift_manager = SwiftManager(settings.SWIFT_CONTAINER_NAME,
+        #                             settings.SWIFT_CONNECTION_PARAMS)
+        swift_manager = SwiftManager()
         # upload file to Swift storage
         with io.StringIO("test file") as file1:
             swift_manager.upload_obj(path, file1.read(), content_type='text/plain')

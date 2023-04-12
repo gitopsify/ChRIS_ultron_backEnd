@@ -11,7 +11,6 @@ Local settings
 import ldap
 from django_auth_ldap.config import LDAPSearch
 from .common import *  # noqa
-from core.swiftmanager import SwiftManager
 
 # Normally you should not import ANYTHING from Django directly
 # into your settings, but ImproperlyConfigured is an exception.
@@ -85,11 +84,12 @@ for app in ['collectionjson', 'core', 'feeds', 'plugins', 'plugininstances', 'pi
 # DEFAULT_FILE_STORAGE = 'swift.storage.SwiftStorage'
 # SWIFT_AUTH_URL = 'http://swift_service:8080/auth/v1.0'
 AWS_S3_HOST = "127.0.0.1"
-AWS_S3_ENDPOINT_URL = "http://127.0.0.1:4566"
+AWS_S3_PORT = "4566"
+AWS_S3_ENDPOINT_URL = f"http://{AWS_S3_HOST}:{AWS_S3_PORT}"
 
 AWS_ACCESS_KEY_ID = 'foobar'
 AWS_SECRET_ACCESS_KEY = 'foobar'
-AWS_STORAGE_BUCKET_NAME = 'users'
+AWS_STORAGE_BUCKET_NAME = 'chrisbucket'
 
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
@@ -104,12 +104,12 @@ AWS_S3_OBJECT_PARAMETERS = {
 AWS_QUERYSTRING_AUTH = False
 
 AWS_STATIC_LOCATION = 'static'
-STATICFILES_STORAGE = 'uploadedfiles.s3_storage.StaticStorage'
+STATICFILES_STORAGE = 'core.swiftmanager.StaticStorage'
 STATIC_URL = "http://%s/%s/" % (AWS_S3_CUSTOM_DOMAIN, AWS_STATIC_LOCATION)
 
 AWS_PUBLIC_MEDIA_LOCATION = ''
 MEDIA_URL = "http://%s/%s/" % (AWS_S3_CUSTOM_DOMAIN, AWS_PUBLIC_MEDIA_LOCATION)
-DEFAULT_FILE_STORAGE = 'uploadedfiles.s3_storage.PublicMediaStorage'
+DEFAULT_FILE_STORAGE = 'core.swiftmanager.SwiftManager'
 
 # SWIFT_USERNAME = 'chris:chris1234'
 # SWIFT_KEY = 'testing'
@@ -127,12 +127,26 @@ CHRIS_STORE_URL = 'http://chris-store.local:8010/api/v1/'
 
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
-DATABASES['default']['NAME'] = 'chris_dev'
-DATABASES['default']['USER'] = 'chris'
-DATABASES['default']['PASSWORD'] = 'Chris1234'
-DATABASES['default']['TEST'] = {'NAME': 'test_chris_dev'}
-DATABASES['default']['HOST'] = 'chris_dev_db'
-DATABASES['default']['PORT'] = '5432'
+import sys
+
+if 'test' in sys.argv:
+    DATABASES['default']['ENGINE'] = 'django.db.backends.sqlite3'
+    DATABASES['default']['NAME'] = 'mydatabase'
+else:
+    # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
+    DATABASES['default']['NAME'] = 'chris_dev'
+    DATABASES['default']['USER'] = 'chris'
+    DATABASES['default']['PASSWORD'] = 'Chris1234'
+    DATABASES['default']['TEST'] = {'NAME': 'test_chris_dev'}
+    DATABASES['default']['HOST'] = 'chris_dev_db'
+    DATABASES['default']['PORT'] = '5432'
+
+#DATABASES['default']['NAME'] = 'chris_dev'
+#DATABASES['default']['USER'] = 'chris'
+#DATABASES['default']['PASSWORD'] = 'Chris1234'
+#DATABASES['default']['TEST'] = {'NAME': 'test_chris_dev'}
+#DATABASES['default']['HOST'] = 'chris_dev_db'
+#DATABASES['default']['PORT'] = '5432'
 
 # Mail settings
 # ------------------------------------------------------------------------------
