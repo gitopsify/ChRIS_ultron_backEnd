@@ -83,7 +83,8 @@ for app in ['collectionjson', 'core', 'feeds', 'plugins', 'plugininstances', 'pi
 # Swift service settings
 # DEFAULT_FILE_STORAGE = 'swift.storage.SwiftStorage'
 # SWIFT_AUTH_URL = 'http://swift_service:8080/auth/v1.0'
-AWS_S3_HOST = "127.0.0.1"
+#AWS_S3_HOST = "127.0.0.1"
+AWS_S3_HOST = "localstack"
 AWS_S3_PORT = "4566"
 AWS_S3_ENDPOINT_URL = f"http://{AWS_S3_HOST}:{AWS_S3_PORT}"
 
@@ -129,24 +130,24 @@ CHRIS_STORE_URL = 'http://chris-store.local:8010/api/v1/'
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 import sys
 
-if 'test' in sys.argv:
-    DATABASES['default']['ENGINE'] = 'django.db.backends.sqlite3'
-    DATABASES['default']['NAME'] = 'mydatabase'
-else:
-    # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
-    DATABASES['default']['NAME'] = 'chris_dev'
-    DATABASES['default']['USER'] = 'chris'
-    DATABASES['default']['PASSWORD'] = 'Chris1234'
-    DATABASES['default']['TEST'] = {'NAME': 'test_chris_dev'}
-    DATABASES['default']['HOST'] = 'chris_dev_db'
-    DATABASES['default']['PORT'] = '5432'
+#if 'test' in sys.argv:
+#    DATABASES['default']['ENGINE'] = 'django.db.backends.sqlite3'
+#    DATABASES['default']['NAME'] = 'mydatabase'
+#else:
+#    # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
+#    DATABASES['default']['NAME'] = 'chris_dev'
+#    DATABASES['default']['USER'] = 'chris'
+#    DATABASES['default']['PASSWORD'] = 'Chris1234'
+#    DATABASES['default']['TEST'] = {'NAME': 'test_chris_dev'}
+#    DATABASES['default']['HOST'] = 'chris_dev_db'
+#    DATABASES['default']['PORT'] = '5432'
 
-#DATABASES['default']['NAME'] = 'chris_dev'
-#DATABASES['default']['USER'] = 'chris'
-#DATABASES['default']['PASSWORD'] = 'Chris1234'
-#DATABASES['default']['TEST'] = {'NAME': 'test_chris_dev'}
-#DATABASES['default']['HOST'] = 'chris_dev_db'
-#DATABASES['default']['PORT'] = '5432'
+DATABASES['default']['NAME'] = 'chris_dev'
+DATABASES['default']['USER'] = 'chris'
+DATABASES['default']['PASSWORD'] = 'Chris1234'
+DATABASES['default']['TEST'] = {'NAME': 'test_chris_dev'}
+DATABASES['default']['HOST'] = 'chris_dev_db'
+DATABASES['default']['PORT'] = '5432'
 
 # Mail settings
 # ------------------------------------------------------------------------------

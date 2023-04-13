@@ -34,6 +34,10 @@ services:
       context: .
       args:
         ENVIRONMENT: local
+        AWS_ACCESS_KEY_ID: foobar
+        AWS_SECRET_ACCESS_KEY: foobar
+        S3_BUCKET: chrisbucket
+        S3_HOST: localstack
     stdin_open: true # docker run -i
     tty: true        # docker run -t
     volumes:
@@ -47,9 +51,11 @@ services:
       - "8000:8000"
     depends_on: 
       - chris_dev_db
-      - swift_service
+      #- swift_service
+      - localstack
       - queue
       - chris_store
+      - init
     networks:
       local:
         aliases:
@@ -62,6 +68,30 @@ services:
       name: "ChRIS_ultron_backEnd"
       role: "Backend development server"
       org.chrisproject.role: "ChRIS ultron backEnd"
+
+  init:
+    image: amazon/aws-cli
+    build:
+      context: .
+      args:
+        ENVIRONMENT: local
+    environment:
+      AWS_ACCESS_KEY_ID: foobar
+      AWS_SECRET_ACCESS_KEY: foobar
+      S3_BUCKET: chrisbucket
+      S3_HOST: localstack
+    command:  >
+      /bin/sh -c "aws --endpoint-url=http://$${S3_HOST}:4566 s3 mb s3://$${S3_BUCKET}
+      && aws --endpoint-url=http://$${S3_HOST}:4566 s3api put-bucket-acl --bucket $${S3_BUCKET} --acl public-read-write"
+    depends_on: 
+      - localstack
+    networks:
+      local:
+      remote:  # bc special automated tests worker runs within CUBE, not needed in prod
+      minikube: 
+    labels:
+      name: "localstack init"
+      role: "init localstack"
 
   worker:
     image: ${CHRISREPO}/chris:dev
@@ -77,6 +107,10 @@ services:
       - DJANGO_COLLECTSTATIC=off
       - CELERY_RDB_HOST=0.0.0.0
       - CELERY_RDB_PORT=6900
+      - AWS_ACCESS_KEY_ID=foobar
+      - AWS_SECRET_ACCESS_KEY=foobar
+      - S3_BUCKET=chrisbucket
+      - S3_HOST=localstack
     command: celery -A core worker -c 3 -l DEBUG -Q main1,main2
     ports:
       - "6900-6905:6900-6905"
@@ -84,6 +118,8 @@ services:
       - chris_dev_db
       - swift_service
       - queue
+      - localstack
+      - init
       # service also depends on pfcon service defined in swarm/docker-compose_remote.yml
     networks:
       - local
@@ -119,6 +155,7 @@ services:
     depends_on:
       - chris_dev_db
       - queue
+      - init
     networks:
       - local
     labels:
@@ -141,6 +178,7 @@ services:
     depends_on:
       - chris_dev_db
       - queue
+      - init
     # restart until Django DB migrations are ready
     deploy:
       restart_policy:
@@ -238,6 +276,23 @@ services:
     labels:
       name: "Swift"
       role: "Swift object storage service"
+
+  localstack:
+    image: localstack/localstack:latest
+    environment:
+      - AWS_DEFAULT_REGION=us-east-1
+      - EDGE_PORT=4566
+      - SERVICES=lambda,s3
+    ports:
+      - '4566-4583:4566-4583'
+    volumes:
+      - "${TEMPDIR:-/tmp/localstack}:/tmp/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - local
+    labels:
+      name: "s3"
+      role: "localstack s3 endpoint"
 
 
 networks:
